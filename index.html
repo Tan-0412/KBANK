@@ -131,7 +131,7 @@
   .report-header h3{font-size:0.9rem;font-weight:500;}
   .report-header span{font-size:0.78rem;color:var(--text3);font-family:var(--mono);}
 
-  .report-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.25rem;}
+  .report-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.25rem;}
   .rpt-stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
 
   /* ── Cat breakdown ── */
@@ -145,9 +145,9 @@
   .cat-pct{font-size:0.75rem;color:var(--text3);font-family:var(--mono);text-align:right;}
 
   /* ── Expense detail table in report ── */
-  .rpt-tbl-head{display:grid;grid-template-columns:68px 1fr 90px 100px 90px;padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .rpt-tbl-head{display:grid;grid-template-columns:68px 1fr 120px 140px 120px;gap:12px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
   .rpt-tbl-head span{font-size:0.7rem;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;}
-  .rpt-tbl-row{display:grid;grid-template-columns:68px 1fr 90px 100px 90px;padding:9px 14px;border-bottom:1px solid var(--border);align-items:center;}
+  .rpt-tbl-row{display:grid;grid-template-columns:68px 1fr 120px 140px 120px;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);align-items:center;}
   .rpt-tbl-row:last-child{border-bottom:none;}
   .rpt-tbl-row:hover{background:var(--surface2);}
   .rpt-body{max-height:340px;overflow-y:auto;}
@@ -542,6 +542,8 @@ function buildRptFilters(){
   const rptM=document.getElementById('rpt-month');
   rptM.innerHTML=ms.innerHTML;
   rptM.value=ms.value;
+  rptM.onchange=()=>generateReport();
+  rptCat.onchange=()=>generateReport();
 }
 function openCatModal(){renderCatList();document.getElementById('modal-cat').classList.remove('hidden');}
 function renderCatList(){
@@ -799,7 +801,8 @@ function render(highlight=false){
 
 // ── Report ───────────────────────────────────────────────
 function generateReport(){
-  const month=document.getElementById('rpt-month').value;
+  const month=document.getElementById('rpt-month').value||document.getElementById('month-sel').value;
+  if(!month)return;
   const catFilter=document.getElementById('rpt-cat').value;
   const[y,mo]=month.split('-');
   const monthLabel=new Date(+y,+mo-1,1).toLocaleDateString('th-TH',{year:'numeric',month:'long'});
@@ -815,7 +818,6 @@ function generateReport(){
   // Summary stats
   const summaryHtml=`<div class="report-summary">
     <div class="rpt-stat stat-card"><div class="stat-label">ยอดรวม</div><div class="stat-value">${fmt(total)}</div><div class="stat-sub">${count} รายการ</div></div>
-    <div class="rpt-stat stat-card"><div class="stat-label">เฉลี่ย/รายการ</div><div class="stat-value">${fmt(avg)}</div></div>
     <div class="rpt-stat stat-card"><div class="stat-label">รายการสูงสุด</div><div class="stat-value" style="font-size:1rem;padding-top:4px;">${topE.name?esc(topE.name):'—'}</div><div class="stat-sub">${topE.amount?fmt(topE.amount):''}</div></div>
     <div class="rpt-stat stat-card"><div class="stat-label">หมวดหมู่</div><div class="stat-value" style="font-size:1.6rem;text-align:center;">${Object.keys(buildCatMap(data)).length}</div><div class="stat-sub">หมวดที่มีรายจ่าย</div></div>
   </div>`;
