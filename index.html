@@ -744,7 +744,9 @@ function buildMonthOptions(){
   expenses.forEach(e=>months.add(e.date.substring(0,7)));
   const sorted=[...months].sort().reverse();
   const sel=document.getElementById('month-sel');
-  const prev=sel.value||today.toISOString().substring(0,7);
+  const todayMonth=today.toISOString().substring(0,7);
+  months.add(todayMonth); // always include current month
+  const prev=sel.value||todayMonth;
   sel.innerHTML='';
   sorted.forEach(m=>{
     const[y,mo]=m.split('-');
