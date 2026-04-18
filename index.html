@@ -241,7 +241,7 @@
       <button class="btn-copy" onclick="copyCode()">Copy code</button>
     </div>
     <div class="code-block" id="script-code"></div>
-    <input class="inp-url" id="inp-url" type="url" placeholder="https://script.google.com/macros/s/.../exec" />
+    <input class="inp-url" id="inp-url" type="url" placeholder="https://script.google.com/macros/s/AKfycbxh1jlwAxD_rUtnJGzvVHNBSnWmcEd_NnS_mf4J2urYY_zdtsZ4ne7s0vhy2X7j8FQ1bw/exec" />
     <div class="modal-btns">
       <button class="btn-primary" onclick="saveUrl()">บันทึกและเชื่อมต่อ</button>
       <button class="btn-secondary" onclick="closeModal('modal-sheets')">ปิด</button>
@@ -412,55 +412,57 @@
 </div>
 
 <script>
-const APPS_SCRIPT_CODE = `// ⚠️ แก้ SHEET_ID ให้ตรงกับ Google Sheet ของคุณก่อน!
-// วิธีดู SHEET_ID: เปิด Sheet → ดู URL → .../spreadsheets/d/[SHEET_ID]/edit
-const SHEET_ID = "YOUR_SHEET_ID_HERE";
+const APPS_SCRIPT_CODE = `const SHEET_ID = "13l_vY4YFl9Z9lUbGDnCU0mCWzXeA2PoZWEpw3X4L_aA";
 const SHEET_NAME = "Expenses";
 
-function getSheet() {
+function getSpreadsheet() {
   return SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME)
     || SpreadsheetApp.openById(SHEET_ID).insertSheet(SHEET_NAME);
 }
 
-function doOptions(e) {
-  return ContentService.createTextOutput("")
-    .setMimeType(ContentService.MimeType.TEXT);
-}
-
 function doGet(e) {
-  const sheet = getSheet();
-  if (e.parameter.action === "get") {
-    return ContentService.createTextOutput(JSON.stringify(sheet.getDataRange().getValues()))
+  const sheet = getSpreadsheet();
+  const action = e.parameter.action;
+
+  if (action === "get") {
+    const rows = sheet.getLastRow() > 0 ? sheet.getDataRange().getValues() : [];
+    return ContentService.createTextOutput(JSON.stringify(rows))
       .setMimeType(ContentService.MimeType.JSON);
   }
-  return ContentService.createTextOutput("ok");
-}
 
-function doPost(e) {
-  const sheet = getSheet();
-  // รองรับทั้ง URLSearchParams (e.parameter.data) และ JSON body (e.postData.contents)
-  const raw = (e.parameter && e.parameter.data) ? e.parameter.data : e.postData.contents;
-  const p = JSON.parse(raw);
-  if (p.action === "add") {
-    const r = p.row;
-    sheet.appendRow([r.id, r.date, r.amount, r.name, r.payee||"", r.cat, r.note||"", r.ts]);
-  } else if (p.action === "update") {
-    const r = p.row; const data = sheet.getDataRange().getValues();
+  if (action === "init") {
+    if (sheet.getLastRow() === 0)
+      sheet.appendRow(["id","date","amount","name","payee","cat","note","timestamp"]);
+    return ContentService.createTextOutput("ok");
+  }
+
+  if (action === "add") {
+    const r = JSON.parse(e.parameter.data);
+    sheet.appendRow([r.id, r.date, r.amount, r.name, r.payee||"", r.cat, r.note||"", new Date().toISOString()]);
+    return ContentService.createTextOutput("ok");
+  }
+
+  if (action === "update") {
+    const r = JSON.parse(e.parameter.data);
+    const data = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]) === String(r.id)) {
         sheet.getRange(i+1,2,1,6).setValues([[r.date,r.amount,r.name,r.payee||"",r.cat,r.note||""]]);
         break;
       }
     }
-  } else if (p.action === "delete") {
+    return ContentService.createTextOutput("ok");
+  }
+
+  if (action === "delete") {
+    const id = e.parameter.id;
     const data = sheet.getDataRange().getValues();
     for (let i = data.length-1; i >= 0; i--) {
-      if (String(data[i][0]) === String(p.id)) { sheet.deleteRow(i+1); break; }
+      if (String(data[i][0]) === String(id)) { sheet.deleteRow(i+1); break; }
     }
-  } else if (p.action === "init") {
-    if (sheet.getLastRow() === 0)
-      sheet.appendRow(["id","date","amount","name","payee","cat","note","timestamp"]);
+    return ContentService.createTextOutput("ok");
   }
+
   return ContentService.createTextOutput("ok");
 }`;
 
@@ -492,7 +494,7 @@ let expenses=[];
 let categories=[];
 let filter='all';
 let currentMonth='';
-let scriptUrl=localStorage.getItem('cc_script_url')||'https://script.google.com/macros/s/AKfycbzJO6CpdxeUzMexNIYG-hpe3fecP-NKNStLG7hIfSQ6pZMAps0hljYHgNNGzilT0dRZpA/exec';
+let scriptUrl=localStorage.getItem('cc_script_url')||'https://script.google.com/macros/s/AKfycbxh1jlwAxD_rUtnJGzvVHNBSnWmcEd_NnS_mf4J2urYY_zdtsZ4ne7s0vhy2X7j8FQ1bw/exec';
 let editingId=null;
 let pendingDeleteId=null;
 
@@ -607,15 +609,18 @@ function setSyncing(msg){
   if(msg){b.classList.add('show');document.getElementById('sync-msg').textContent=msg;}
   else b.classList.remove('show');
 }
+function getSheet(params){
+  return fetch(scriptUrl+'?'+new URLSearchParams(params).toString());
+}
 async function initSheet(){
   if(!scriptUrl)return;
-  try{await postToSheet({action:'init'});}catch(e){}
+  try{await getSheet({action:'init'});}catch(e){}
 }
 async function loadFromSheet(){
   if(!scriptUrl)return;
   setSyncing('กำลังโหลดข้อมูลจาก Google Sheets...');
   try{
-    const res=await fetch(scriptUrl+'?action=get');
+    const res=await getSheet({action:'get'});
     const rows=await res.json();
     if(!rows[0]||rows[0][0]!=='id'){setSyncing(null);return;}
     expenses=rows.slice(1).map(r=>({id:r[0],date:r[1],amount:parseFloat(r[2]),name:r[3],payee:r[4]||'',cat:r[5],note:r[6]||''})).filter(e=>e.date);
@@ -632,26 +637,21 @@ async function refreshData(){
   await loadFromSheet();
   setTimeout(()=>btn.classList.remove('spinning'),600);
 }
-function postToSheet(payload){
-  const form=new URLSearchParams();
-  form.append('data',JSON.stringify(payload));
-  return fetch(scriptUrl,{method:'POST',body:form,redirect:'follow'});
-}
 async function saveToSheet(exp){
   if(!scriptUrl)return;setSyncing('กำลังบันทึก...');
-  try{await postToSheet({action:'add',row:{...exp,ts:new Date().toISOString()}});}
+  try{await getSheet({action:'add',data:JSON.stringify(exp)});}
   catch(e){showToast('บันทึกลง Sheets ไม่สำเร็จ');}
   setSyncing(null);
 }
 async function updateToSheet(exp){
   if(!scriptUrl)return;setSyncing('กำลังอัปเดต...');
-  try{await postToSheet({action:'update',row:exp});}
+  try{await getSheet({action:'update',data:JSON.stringify(exp)});}
   catch(e){showToast('อัปเดต Sheets ไม่สำเร็จ');}
   setSyncing(null);
 }
 async function deleteFromSheet(id){
   if(!scriptUrl)return;setSyncing('กำลังลบ...');
-  try{await postToSheet({action:'delete',id});}catch(e){}
+  try{await getSheet({action:'delete',id:id});}catch(e){}
   setSyncing(null);
 }
 
