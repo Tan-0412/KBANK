@@ -86,14 +86,14 @@
   .btn-refresh.spinning svg{animation:spin 0.7s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg)}}
 
-  .tbl-head{display:grid;grid-template-columns:68px 1fr 100px 110px 110px 72px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface2);}
+  .tbl-head{display:grid;grid-template-columns:60px 1fr 110px 130px 120px 68px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface2);}
   .tbl-head span{font-size:0.72rem;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;}
   .tbl-head span.right{text-align:right;}
   .tbl-body{max-height:420px;overflow-y:auto;}
   .tbl-body::-webkit-scrollbar{width:4px;}
   .tbl-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
 
-  .tbl-row{display:grid;grid-template-columns:68px 1fr 100px 110px 110px 72px;padding:10px 14px;border-bottom:1px solid var(--border);align-items:center;transition:background 0.1s;}
+  .tbl-row{display:grid;grid-template-columns:60px 1fr 110px 130px 120px 68px;padding:10px 14px;border-bottom:1px solid var(--border);align-items:center;transition:background 0.1s;}
   .tbl-row:last-child{border-bottom:none;}
   .tbl-row:hover{background:var(--surface2);}
   .tbl-row.new-row{animation:fadeIn 0.3s ease;}
@@ -767,7 +767,7 @@ function buildMonthOptions(){
   sel.innerHTML='';
   sorted.forEach(m=>{
     const[y,mo]=m.split('-');
-    const label=new Date(+y,+mo-1,1).toLocaleDateString('th-TH',{year:'numeric',month:'long'});
+    const label=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'][+mo-1]+' '+y;
     const opt=document.createElement('option');opt.value=m;opt.textContent=label;sel.appendChild(opt);
   });
   sel.value=sorted.includes(prev)?prev:sorted[0];
@@ -797,11 +797,12 @@ function render(highlight=false){
   const body=document.getElementById('tbl-body');
   if(!visible.length){body.innerHTML='<div class="empty">ยังไม่มีรายการในช่วงนี้</div>';return;}
   body.innerHTML=visible.map((e,i)=>{
-    const[y,m,d]=e.date.split('-');
+    const datePart=e.date?e.date.substring(0,10):'';
+    const[y,m,d]=datePart?datePart.split('-'):['','',''];
     const cat=getCat(e.cat);const col=getCatColor(e.cat);
     const isEditing=String(e.id)===String(editingId);
     return `<div class="tbl-row${highlight&&i===0?' new-row':''}${isEditing?' editing-row':''}">
-      <span class="date-col">${d}/${m}</span>
+      <span class="date-col">${d&&m?d+'/'+m:'—'}</span>
       <div class="name-col"><div class="name">${esc(e.name)}</div>${e.note?`<div class="sub">${esc(e.note)}</div>`:''}</div>
       <span class="amount-col">${fmt(e.amount)}</span>
       <span class="payee-col">${e.payee?esc(e.payee):'<span style="color:var(--text3)">—</span>'}</span>
@@ -824,7 +825,8 @@ function generateReport(){
   if(!month)return;
   const catFilter=document.getElementById('rpt-cat').value||'all';
   const[y,mo]=month.split('-');
-  const monthLabel=new Date(+y,+mo-1,1).toLocaleDateString('th-TH',{year:'numeric',month:'long'});
+  const MONTHS_TH=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const monthLabel=MONTHS_TH[+mo-1]+' '+y;
 
   let data=expenses.filter(e=>e.date.substring(0,7)===month);
   if(catFilter!=='all') data=data.filter(e=>e.cat===catFilter);
