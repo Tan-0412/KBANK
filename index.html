@@ -480,7 +480,7 @@ let expenses=[];
 let categories=[];
 let filter='all';
 let currentMonth='';
-let scriptUrl=localStorage.getItem('cc_script_url')||'';
+let scriptUrl=localStorage.getItem('cc_script_url')||'https://script.google.com/macros/s/AKfycbzS4LnimaOQvnLg4PMjxzyYon50URNYQfxwLYb563MQhTUe1qLu8vqbkss5iGi0hQyQ/exec';
 let editingId=null;
 let pendingDeleteId=null;
 
@@ -498,18 +498,16 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('script-code').textContent=APPS_SCRIPT_CODE;
   document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
   expenses=JSON.parse(localStorage.getItem('cc_expenses')||'[]');
-  if(!scriptUrl){
-    document.getElementById('modal-sheets').classList.remove('hidden');
-  } else {
-    document.getElementById('inp-url').value=scriptUrl;
-    updateSheetStatus();
-    loadFromSheet();
-  }
+  document.getElementById('inp-url').value=scriptUrl;
+  updateSheetStatus();
+  document.getElementById('tab-entries').style.display='block';
+  document.getElementById('tab-report').style.display='none';
   buildCatSelect();
   buildFilterBar();
   buildMonthOptions();
   buildRptFilters();
   render();
+  loadFromSheet();
 });
 
 // ── Tab switching ────────────────────────────────────────
@@ -517,7 +515,7 @@ function switchTab(tab,btn){
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('tab-entries').style.display=tab==='entries'?'block':'none';
-  document.getElementById('tab-report').classList.toggle('active',tab==='report');
+  document.getElementById('tab-report').style.display=tab==='report'?'block':'none';
   if(tab==='report') generateReport();
 }
 
@@ -801,13 +799,13 @@ function render(highlight=false){
 
 // ── Report ───────────────────────────────────────────────
 function generateReport(){
-  // sync rpt-month ก่อนเสมอ เพราะอาจยังไม่ถูก populate
   const ms=document.getElementById('month-sel');
   const rptM=document.getElementById('rpt-month');
-  if(!rptM.value && ms.value){rptM.innerHTML=ms.innerHTML;rptM.value=ms.value;}
+  if(!rptM.innerHTML) { rptM.innerHTML=ms.innerHTML; }
+  if(!rptM.value) rptM.value=ms.value;
   const month=rptM.value||ms.value;
   if(!month)return;
-  const catFilter=document.getElementById('rpt-cat').value;
+  const catFilter=document.getElementById('rpt-cat').value||'all';
   const[y,mo]=month.split('-');
   const monthLabel=new Date(+y,+mo-1,1).toLocaleDateString('th-TH',{year:'numeric',month:'long'});
 
