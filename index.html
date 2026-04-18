@@ -405,7 +405,7 @@
           <option value="all">ทั้งหมด</option>
         </select>
       </div>
-      <button class="btn-gen-report" onclick="generateReport()">สร้างรายงาน</button>
+      <button class="btn-gen-report" onclick="generateAndExport()">📄 Export PDF</button>
     </div>
     <div id="report-output"></div>
   </div>
@@ -452,8 +452,16 @@ function doGet(e) {
     if (sheet.getLastRow() === 0)
       sheet.appendRow(["id","date","amount","name","payee","cat","note","timestamp"]);
     const catSheet = getSheet(CAT_SHEET);
-    if (catSheet.getLastRow() === 0)
+    if (catSheet.getLastRow() === 0) {
       catSheet.appendRow(["id","icon","name"]);
+      // sync default categories
+      catSheet.appendRow(["food","🍜","อาหาร & เครื่องดื่ม"]);
+      catSheet.appendRow(["shop","🛍","ช้อปปิ้ง"]);
+      catSheet.appendRow(["travel","🚗","เดินทาง & น้ำมัน"]);
+      catSheet.appendRow(["entertain","🎬","บันเทิง"]);
+      catSheet.appendRow(["health","💊","สุขภาพ"]);
+      catSheet.appendRow(["other","📦","อื่นๆ"]);
+    }
     return ContentService.createTextOutput("ok");
   }
 
@@ -579,7 +587,7 @@ function getCat(id){return categories.find(c=>c.id===id)||{icon:'📦',name:id,i
 function getCatColor(id){const i=categories.findIndex(c=>c.id===id);return PALETTE[(i<0?0:i)%PALETTE.length];}
 
 // ── Init ────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded',()=>{
+document.addEventListener('DOMContentLoaded',async()=>{
   loadCategories();
   document.getElementById('script-code').textContent=APPS_SCRIPT_CODE;
   document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
@@ -593,8 +601,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   buildMonthOptions();
   buildRptFilters();
   render();
-  loadFromSheet();
-  loadCatsFromSheet();
+  // โหลดอัตโนมัติจาก Sheet ทันที
+  await loadCatsFromSheet();
+  await loadFromSheet();
 });
 
 // ── Tab switching ────────────────────────────────────────
@@ -906,6 +915,112 @@ function render(highlight=false){
 }
 
 // ── Report ───────────────────────────────────────────────
+function generateAndExport(){
+  const month=document.getElementById('rpt-month').value||currentMonth;
+  if(!month) return;
+  const catFilter=document.getElementById('rpt-cat').value||'all';
+  const[y,mo]=month.split('-');
+  const MTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const monthLabel=MTHS[+mo-1]+' '+y;
+
+  let data=expenses.filter(e=>e.date.substring(0,7)===month);
+  if(catFilter!=='all') data=data.filter(e=>e.cat===catFilter);
+  if(!data.length){showToast('ไม่มีรายการในเดือนนี้');return;}
+
+  const total=data.reduce((s,e)=>s+e.amount,0);
+  const topE=data.reduce((mx,e)=>e.amount>mx.amount?e:mx,data[0]);
+  const catMap={};data.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amount;});
+  const catRows=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+
+  const rows=data.sort((a,b)=>b.date.localeCompare(a.date)).map(e=>{
+    const dp=String(e.date).substring(0,10);const[ey,em,ed]=dp.split('-');
+    const cat=getCat(e.cat);
+    return `<tr>
+      <td>${ed}/${em}/${ey}</td>
+      <td>${esc(e.name)}</td>
+      <td style="text-align:right;font-weight:600;">฿${parseFloat(e.amount).toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+      <td>${e.payee?esc(e.payee):'—'}</td>
+      <td>${cat.icon} ${cat.name}</td>
+    </tr>`;
+  }).join('');
+
+  const catRowsHtml=catRows.map(([cid,amt])=>{
+    const c=getCat(cid);
+    const pct=total?((amt/total)*100).toFixed(1):0;
+    return `<tr>
+      <td>${c.icon} ${c.name}</td>
+      <td style="text-align:right;font-weight:600;">฿${parseFloat(amt).toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+      <td style="text-align:right;">${pct}%</td>
+    </tr>`;
+  }).join('');
+
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>รายงานค่าใช้จ่าย ${monthLabel}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:Arial,sans-serif;padding:32px;color:#1a1a1a;font-size:13px;line-height:1.5;}
+      .header{border-bottom:2px solid #1a1a1a;padding-bottom:12px;margin-bottom:20px;}
+      .header h1{font-size:20px;font-weight:700;margin-bottom:2px;}
+      .header p{font-size:12px;color:#666;}
+      .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+      .stat{border:1px solid #ddd;border-radius:6px;padding:14px;}
+      .stat-label{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;}
+      .stat-value{font-size:18px;font-weight:700;}
+      .stat-sub{font-size:11px;color:#888;margin-top:3px;}
+      h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#444;margin:24px 0 10px;padding-bottom:6px;border-bottom:1px solid #eee;}
+      table{width:100%;border-collapse:collapse;font-size:12px;}
+      thead tr{background:#f5f5f5;}
+      th{text-align:left;padding:8px 10px;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:#666;font-weight:600;}
+      td{padding:8px 10px;border-bottom:1px solid #f0f0f0;}
+      tr:last-child td{border-bottom:none;}
+      tfoot tr{background:#f9f9f9;font-weight:700;}
+      @media print{
+        body{padding:20px;}
+        @page{margin:15mm;}
+      }
+    </style>
+  </head><body>
+    <div class="header">
+      <h1>รายงานค่าใช้จ่ายบัตรเครดิต</h1>
+      <p>${monthLabel}${catFilter!=='all'?' · '+getCat(catFilter).name:''}</p>
+    </div>
+    <div class="summary">
+      <div class="stat">
+        <div class="stat-label">ยอดรวม</div>
+        <div class="stat-value">฿${total.toLocaleString('th-TH',{minimumFractionDigits:2})}</div>
+        <div class="stat-sub">${data.length} รายการ</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">รายการสูงสุด</div>
+        <div class="stat-value" style="font-size:14px;">${esc(topE.name)}</div>
+        <div class="stat-sub">฿${parseFloat(topE.amount).toLocaleString('th-TH',{minimumFractionDigits:2})}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">จำนวนหมวด</div>
+        <div class="stat-value">${catRows.length}</div>
+        <div class="stat-sub">หมวดที่มีรายจ่าย</div>
+      </div>
+    </div>
+    <h2>สัดส่วนตามหมวดหมู่</h2>
+    <table>
+      <thead><tr><th>หมวดหมู่</th><th style="text-align:right;">จำนวนเงิน</th><th style="text-align:right;">สัดส่วน</th></tr></thead>
+      <tbody>${catRowsHtml}</tbody>
+      <tfoot><tr><td>รวม</td><td style="text-align:right;">฿${total.toLocaleString('th-TH',{minimumFractionDigits:2})}</td><td style="text-align:right;">100%</td></tr></tfoot>
+    </table>
+    <h2>รายละเอียดรายการ</h2>
+    <table>
+      <thead><tr><th>วันที่</th><th>รายการ</th><th style="text-align:right;">จำนวนเงิน</th><th>จ่ายให้</th><th>หมวด</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td colspan="2">รวมทั้งหมด</td><td style="text-align:right;">฿${total.toLocaleString('th-TH',{minimumFractionDigits:2})}</td><td colspan="2">${data.length} รายการ</td></tr></tfoot>
+    </table>
+  </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>{win.print();},600);
+}
+
 function generateReport(){
   // load from localStorage if expenses empty
   if(!expenses.length){
@@ -914,8 +1029,12 @@ function generateReport(){
     buildMonthOptions();buildRptFilters();
   }
   syncRptMonth();
-  const month=document.getElementById('rpt-month').value||currentMonth;
-  if(!month){document.getElementById('report-output').innerHTML='<div class="empty" style="padding:2rem;">กรุณาเลือกเดือน</div>';return;}
+  const rptM=document.getElementById('rpt-month');
+  const month=rptM.value||currentMonth;
+  if(!month||!month.includes('-')){
+    document.getElementById('report-output').innerHTML='<div class="empty" style="padding:2rem;">กรุณากด รีเฟรช ก่อนสร้างรายงาน</div>';
+    return;
+  }
   const catFilter=document.getElementById('rpt-cat').value||'all';
   const[y,mo]=month.split('-');
   const MTHS2=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];const monthLabel=MTHS2[+mo-1]+' '+y;
