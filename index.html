@@ -232,8 +232,8 @@
     <p>ตั้งค่า Apps Script เพื่อซิงค์ข้อมูลกับ Google Sheet ของคุณครับ</p>
     <div class="steps">
       <div class="step"><span class="step-num">1</span><span>เปิด Google Sheet → <strong>Extensions → Apps Script</strong></span></div>
-      <div class="step"><span class="step-num">2</span><span>วางโค้ดด้านล่าง แล้วกด Save</span></div>
-      <div class="step"><span class="step-num">3</span><span><strong>Deploy → New deployment → Web App</strong><br>Execute as: Me &nbsp;·&nbsp; Who can access: Anyone</span></div>
+      <div class="step"><span class="step-num">2</span><span>วางโค้ดด้านล่าง จากนั้น <strong>แก้ SHEET_ID</strong> ให้ตรงกับ Sheet ของคุณ<br><span style="font-size:0.75rem;color:var(--text3);">ดู ID ได้จาก URL ของ Sheet: .../spreadsheets/d/<strong style="color:var(--amber);">[SHEET_ID]</strong>/edit</span></span></div>
+      <div class="step"><span class="step-num">3</span><span>กด Save แล้วไปที่ <strong>Deploy → New deployment → Web App</strong><br>Execute as: <strong>Me</strong> &nbsp;·&nbsp; Who can access: <strong>Anyone</strong></span></div>
       <div class="step"><span class="step-num">4</span><span>คัดลอก <strong>Web App URL</strong> มาวางด้านล่าง</span></div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -412,12 +412,23 @@
 </div>
 
 <script>
-const APPS_SCRIPT_CODE = `const SHEET_ID = "13l_vY4YFl9Z9lUbGDnCU0mCWzXeA2PoZWEpw3X4L_aA";
+const APPS_SCRIPT_CODE = `// ⚠️ แก้ SHEET_ID ให้ตรงกับ Google Sheet ของคุณก่อน!
+// วิธีดู SHEET_ID: เปิด Sheet → ดู URL → .../spreadsheets/d/[SHEET_ID]/edit
+const SHEET_ID = "YOUR_SHEET_ID_HERE";
 const SHEET_NAME = "Expenses";
 
-function doGet(e) {
-  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME)
+function getSheet() {
+  return SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME)
     || SpreadsheetApp.openById(SHEET_ID).insertSheet(SHEET_NAME);
+}
+
+function doOptions(e) {
+  return ContentService.createTextOutput("")
+    .setMimeType(ContentService.MimeType.TEXT);
+}
+
+function doGet(e) {
+  const sheet = getSheet();
   if (e.parameter.action === "get") {
     return ContentService.createTextOutput(JSON.stringify(sheet.getDataRange().getValues()))
       .setMimeType(ContentService.MimeType.JSON);
@@ -426,9 +437,10 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME)
-    || SpreadsheetApp.openById(SHEET_ID).insertSheet(SHEET_NAME);
-  const p = JSON.parse(e.postData.contents);
+  const sheet = getSheet();
+  // รองรับทั้ง URLSearchParams (e.parameter.data) และ JSON body (e.postData.contents)
+  const raw = (e.parameter && e.parameter.data) ? e.parameter.data : e.postData.contents;
+  const p = JSON.parse(raw);
   if (p.action === "add") {
     const r = p.row;
     sheet.appendRow([r.id, r.date, r.amount, r.name, r.payee||"", r.cat, r.note||"", r.ts]);
@@ -597,7 +609,7 @@ function setSyncing(msg){
 }
 async function initSheet(){
   if(!scriptUrl)return;
-  try{await fetch(scriptUrl,{method:'POST',body:JSON.stringify({action:'init'}),headers:{'Content-Type':'application/json'}});}catch(e){}
+  try{await postToSheet({action:'init'});}catch(e){}
 }
 async function loadFromSheet(){
   if(!scriptUrl)return;
@@ -620,21 +632,26 @@ async function refreshData(){
   await loadFromSheet();
   setTimeout(()=>btn.classList.remove('spinning'),600);
 }
+function postToSheet(payload){
+  const form=new URLSearchParams();
+  form.append('data',JSON.stringify(payload));
+  return fetch(scriptUrl,{method:'POST',body:form,redirect:'follow'});
+}
 async function saveToSheet(exp){
   if(!scriptUrl)return;setSyncing('กำลังบันทึก...');
-  try{await fetch(scriptUrl,{method:'POST',body:JSON.stringify({action:'add',row:{...exp,ts:new Date().toISOString()}}),headers:{'Content-Type':'application/json'}});}
+  try{await postToSheet({action:'add',row:{...exp,ts:new Date().toISOString()}});}
   catch(e){showToast('บันทึกลง Sheets ไม่สำเร็จ');}
   setSyncing(null);
 }
 async function updateToSheet(exp){
   if(!scriptUrl)return;setSyncing('กำลังอัปเดต...');
-  try{await fetch(scriptUrl,{method:'POST',body:JSON.stringify({action:'update',row:exp}),headers:{'Content-Type':'application/json'}});}
+  try{await postToSheet({action:'update',row:exp});}
   catch(e){showToast('อัปเดต Sheets ไม่สำเร็จ');}
   setSyncing(null);
 }
 async function deleteFromSheet(id){
   if(!scriptUrl)return;setSyncing('กำลังลบ...');
-  try{await fetch(scriptUrl,{method:'POST',body:JSON.stringify({action:'delete',id}),headers:{'Content-Type':'application/json'}});}catch(e){}
+  try{await postToSheet({action:'delete',id});}catch(e){}
   setSyncing(null);
 }
 
