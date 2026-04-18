@@ -264,6 +264,7 @@
         <option>⚡</option><option>🐾</option><option>📚</option><option>🍺</option>
         <option>🏋️</option><option>💅</option><option>🔧</option><option>🌿</option>
       </select>
+      <input id="new-cat-id" placeholder="id (เช่น fuel, pet)" style="width:110px;" />
       <input id="new-cat-name" placeholder="ชื่อหมวดหมู่" />
       <button onclick="confirmAddCat()">+ เพิ่ม</button>
     </div>
@@ -452,9 +453,8 @@ function doGet(e) {
     if (sheet.getLastRow() === 0)
       sheet.appendRow(["id","date","amount","name","payee","cat","note","timestamp"]);
     const catSheet = getSheet(CAT_SHEET);
-    if (catSheet.getLastRow() === 0) {
-      catSheet.appendRow(["id","icon","name"]);
-      // sync default categories
+    if (catSheet.getLastRow() <= 1) {
+      if (catSheet.getLastRow() === 0) catSheet.appendRow(["id","icon","name"]);
       catSheet.appendRow(["food","🍜","อาหาร & เครื่องดื่ม"]);
       catSheet.appendRow(["shop","🛍","ช้อปปิ้ง"]);
       catSheet.appendRow(["travel","🚗","เดินทาง & น้ำมัน"]);
@@ -663,12 +663,16 @@ function renderCatList(){
 function confirmAddCat(){
   const name=document.getElementById('new-cat-name').value.trim();
   const icon=document.getElementById('new-cat-icon').value;
+  const customId=document.getElementById('new-cat-id').value.trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
   if(!name){showToast('กรุณากรอกชื่อ');return;}
+  if(!customId){showToast('กรุณากรอก id');return;}
+  if(categories.find(c=>c.id===customId)){showToast('id นี้มีอยู่แล้ว');return;}
   if(categories.find(c=>c.name===name)){showToast('ชื่อนี้มีอยู่แล้ว');return;}
-  const newCat={id:'cat_'+Date.now(),icon,name};
+  const newCat={id:customId,icon,name};
   categories.push(newCat);
   saveCategories();buildCatSelect();buildFilterBar();renderCatList();buildRptFilters();
   saveCatToSheet(newCat);
+  document.getElementById('new-cat-id').value='';
   document.getElementById('new-cat-name').value='';
   showToast('เพิ่มหมวดหมู่แล้ว ✓');
 }
