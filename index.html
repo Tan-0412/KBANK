@@ -86,14 +86,14 @@
   .btn-refresh.spinning svg{animation:spin 0.7s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg)}}
 
-  .tbl-head{display:grid;grid-template-columns:55px 1fr 120px 150px 115px 64px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface2);}
+  .tbl-head{display:grid;grid-template-columns:55px 1fr 120px 150px 115px 64px;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface2);}
   .tbl-head span{font-size:0.72rem;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;}
   .tbl-head span.right{text-align:right;}
   .tbl-body{max-height:420px;overflow-y:auto;}
   .tbl-body::-webkit-scrollbar{width:4px;}
   .tbl-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
 
-  .tbl-row{display:grid;grid-template-columns:55px 1fr 120px 150px 115px 64px;padding:10px 14px;border-bottom:1px solid var(--border);align-items:center;transition:background 0.1s;}
+  .tbl-row{display:grid;grid-template-columns:55px 1fr 120px 150px 115px 64px;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);align-items:center;transition:background 0.1s;}
   .tbl-row:last-child{border-bottom:none;}
   .tbl-row:hover{background:var(--surface2);}
   .tbl-row.new-row{animation:fadeIn 0.3s ease;}
@@ -145,9 +145,9 @@
   .cat-pct{font-size:0.75rem;color:var(--text3);font-family:var(--mono);text-align:right;}
 
   /* ── Expense detail table in report ── */
-  .rpt-tbl-head{display:grid;grid-template-columns:68px 1fr 120px 140px 120px;gap:12px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .rpt-tbl-head{display:grid;grid-template-columns:55px 1fr 110px 130px 110px;gap:8px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
   .rpt-tbl-head span{font-size:0.7rem;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;}
-  .rpt-tbl-row{display:grid;grid-template-columns:68px 1fr 120px 140px 120px;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);align-items:center;}
+  .rpt-tbl-row{display:grid;grid-template-columns:55px 1fr 110px 130px 110px;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);align-items:center;}
   .rpt-tbl-row:last-child{border-bottom:none;}
   .rpt-tbl-row:hover{background:var(--surface2);}
   .rpt-body{max-height:340px;overflow-y:auto;}
@@ -618,14 +618,12 @@ async function loadFromSheet(){
     expenses=rows.slice(1).map(r=>({
       id:String(r[0]),
       date:(()=>{
-        const d=r[1];
-        if(!d) return '';
-        // Handle Date object from Sheets (comes as "Sat Apr 11 2026..." or "2026-04-11")
-        const s=String(d);
+        const s=String(r[1]||'').trim();
+        if(!s||s==='undefined') return '';
         if(s.match(/^\d{4}-\d{2}-\d{2}/)) return s.substring(0,10);
-        // Try parsing as date
-        const parsed=new Date(s);
-        if(!isNaN(parsed)) return parsed.toISOString().substring(0,10);
+        const p=s.match(/(\w+)\s+(\d+)\s+(\d{4})/)||s.match(/(\w+)\s+(\w+)\s+(\d+)\s+(\d{4})/);
+        const mo={Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+        if(p&&p.length===5) return p[4]+'-'+(mo[p[2]]||'01')+'-'+String(p[3]).padStart(2,'0');
         return s.substring(0,10);
       })(),
       amount:parseFloat(r[2])||0,
@@ -829,10 +827,10 @@ function render(highlight=false){
 function generateReport(){
   const ms=document.getElementById('month-sel');
   const rptM=document.getElementById('rpt-month');
-  if(!rptM.innerHTML||rptM.innerHTML.trim()==='') { rptM.innerHTML=ms.innerHTML; }
-  if(!rptM.value) rptM.value=ms.value||currentMonth;
+  if(!rptM.innerHTML||rptM.options.length===0){rptM.innerHTML=ms.innerHTML;}
+  if(!rptM.value||rptM.value===''){rptM.value=currentMonth||ms.value;}
   const month=rptM.value||currentMonth;
-  if(!month){document.getElementById('report-output').innerHTML='<div class="empty" style="padding:2rem;">กรุณาเลือกเดือน</div>';return;}
+  if(!month||!expenses.length){document.getElementById('report-output').innerHTML='<div class="empty" style="padding:2rem;">ไม่มีข้อมูล กรุณากด รีเฟรช ก่อน</div>';return;}
   const catFilter=document.getElementById('rpt-cat').value||'all';
   const[y,mo]=month.split('-');
   const MTHS2=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];const monthLabel=MTHS2[+mo-1]+' '+y;
