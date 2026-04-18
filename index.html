@@ -86,14 +86,14 @@
   .btn-refresh.spinning svg{animation:spin 0.7s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg)}}
 
-  .tbl-head{display:grid;grid-template-columns:60px 1fr 110px 130px 120px 68px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface2);}
+  .tbl-head{display:grid;grid-template-columns:55px 1fr 120px 150px 115px 64px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface2);}
   .tbl-head span{font-size:0.72rem;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;}
   .tbl-head span.right{text-align:right;}
   .tbl-body{max-height:420px;overflow-y:auto;}
   .tbl-body::-webkit-scrollbar{width:4px;}
   .tbl-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
 
-  .tbl-row{display:grid;grid-template-columns:60px 1fr 110px 130px 120px 68px;padding:10px 14px;border-bottom:1px solid var(--border);align-items:center;transition:background 0.1s;}
+  .tbl-row{display:grid;grid-template-columns:55px 1fr 120px 150px 115px 64px;padding:10px 14px;border-bottom:1px solid var(--border);align-items:center;transition:background 0.1s;}
   .tbl-row:last-child{border-bottom:none;}
   .tbl-row:hover{background:var(--surface2);}
   .tbl-row.new-row{animation:fadeIn 0.3s ease;}
@@ -103,7 +103,7 @@
   .date-col{font-size:0.8rem;color:var(--text3);font-family:var(--mono);}
   .name-col .name{font-size:0.9rem;color:var(--text);}
   .name-col .sub{font-size:0.75rem;color:var(--text3);}
-  .amount-col{font-size:0.9rem;font-weight:500;font-family:var(--mono);color:var(--text);text-align:right;}
+  .amount-col{font-size:0.9rem;font-weight:500;font-family:var(--mono);color:var(--text);text-align:right;white-space:nowrap;}
   .payee-col{font-size:0.82rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .cat-col{display:flex;align-items:center;}
   .badge{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;padding:3px 8px;border-radius:20px;white-space:nowrap;}
@@ -232,8 +232,8 @@
     <p>ตั้งค่า Apps Script เพื่อซิงค์ข้อมูลกับ Google Sheet ของคุณครับ</p>
     <div class="steps">
       <div class="step"><span class="step-num">1</span><span>เปิด Google Sheet → <strong>Extensions → Apps Script</strong></span></div>
-      <div class="step"><span class="step-num">2</span><span>วางโค้ดด้านล่าง จากนั้น <strong>แก้ SHEET_ID</strong> ให้ตรงกับ Sheet ของคุณ<br><span style="font-size:0.75rem;color:var(--text3);">ดู ID ได้จาก URL ของ Sheet: .../spreadsheets/d/<strong style="color:var(--amber);">[SHEET_ID]</strong>/edit</span></span></div>
-      <div class="step"><span class="step-num">3</span><span>กด Save แล้วไปที่ <strong>Deploy → New deployment → Web App</strong><br>Execute as: <strong>Me</strong> &nbsp;·&nbsp; Who can access: <strong>Anyone</strong></span></div>
+      <div class="step"><span class="step-num">2</span><span>วางโค้ดด้านล่าง แล้วกด Save</span></div>
+      <div class="step"><span class="step-num">3</span><span><strong>Deploy → New deployment → Web App</strong><br>Execute as: Me &nbsp;·&nbsp; Who can access: Anyone</span></div>
       <div class="step"><span class="step-num">4</span><span>คัดลอก <strong>Web App URL</strong> มาวางด้านล่าง</span></div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -241,7 +241,7 @@
       <button class="btn-copy" onclick="copyCode()">Copy code</button>
     </div>
     <div class="code-block" id="script-code"></div>
-    <input class="inp-url" id="inp-url" type="url" placeholder="https://script.google.com/macros/s/AKfycbxh1jlwAxD_rUtnJGzvVHNBSnWmcEd_NnS_mf4J2urYY_zdtsZ4ne7s0vhy2X7j8FQ1bw/exec" />
+    <input class="inp-url" id="inp-url" type="url" placeholder="https://script.google.com/macros/s/.../exec" />
     <div class="modal-btns">
       <button class="btn-primary" onclick="saveUrl()">บันทึกและเชื่อมต่อ</button>
       <button class="btn-secondary" onclick="closeModal('modal-sheets')">ปิด</button>
@@ -323,9 +323,9 @@
         <div class="stat-sub" id="s-top-val">—</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">เฉลี่ย / รายการ</div>
-        <div class="stat-value" id="s-avg">฿0</div>
-        <div class="stat-sub">ต่อครั้ง</div>
+        <div class="stat-label">จำนวนหมวด</div>
+        <div class="stat-value" id="s-avg" style="font-size:1.1rem;padding-top:6px;">—</div>
+        <div class="stat-sub" id="s-avg-sub">หมวดที่มีรายจ่าย</div>
       </div>
     </div>
 
@@ -423,25 +423,20 @@ function getSpreadsheet() {
 function doGet(e) {
   const sheet = getSpreadsheet();
   const action = e.parameter.action;
-
   if (action === "get") {
     const rows = sheet.getLastRow() > 0 ? sheet.getDataRange().getValues() : [];
-    return ContentService.createTextOutput(JSON.stringify(rows))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify(rows)).setMimeType(ContentService.MimeType.JSON);
   }
-
   if (action === "init") {
     if (sheet.getLastRow() === 0)
       sheet.appendRow(["id","date","amount","name","payee","cat","note","timestamp"]);
     return ContentService.createTextOutput("ok");
   }
-
   if (action === "add") {
     const r = JSON.parse(e.parameter.data);
     sheet.appendRow([r.id, r.date, r.amount, r.name, r.payee||"", r.cat, r.note||"", new Date().toISOString()]);
     return ContentService.createTextOutput("ok");
   }
-
   if (action === "update") {
     const r = JSON.parse(e.parameter.data);
     const data = sheet.getDataRange().getValues();
@@ -453,16 +448,13 @@ function doGet(e) {
     }
     return ContentService.createTextOutput("ok");
   }
-
   if (action === "delete") {
-    const id = e.parameter.id;
     const data = sheet.getDataRange().getValues();
     for (let i = data.length-1; i >= 0; i--) {
-      if (String(data[i][0]) === String(id)) { sheet.deleteRow(i+1); break; }
+      if (String(data[i][0]) === String(e.parameter.id)) { sheet.deleteRow(i+1); break; }
     }
     return ContentService.createTextOutput("ok");
   }
-
   return ContentService.createTextOutput("ok");
 }`;
 
@@ -609,21 +601,39 @@ function setSyncing(msg){
   if(msg){b.classList.add('show');document.getElementById('sync-msg').textContent=msg;}
   else b.classList.remove('show');
 }
-function getSheet(params){
+function callSheet(params){
   return fetch(scriptUrl+'?'+new URLSearchParams(params).toString());
 }
 async function initSheet(){
   if(!scriptUrl)return;
-  try{await getSheet({action:'init'});}catch(e){}
+  try{await callSheet({action:'init'});}catch(e){}
 }
 async function loadFromSheet(){
   if(!scriptUrl)return;
   setSyncing('กำลังโหลดข้อมูลจาก Google Sheets...');
   try{
-    const res=await getSheet({action:'get'});
+    const res=await callSheet({action:'get'});
     const rows=await res.json();
     if(!rows[0]||rows[0][0]!=='id'){setSyncing(null);return;}
-    expenses=rows.slice(1).map(r=>({id:r[0],date:r[1],amount:parseFloat(r[2]),name:r[3],payee:r[4]||'',cat:r[5],note:r[6]||''})).filter(e=>e.date);
+    expenses=rows.slice(1).map(r=>({
+      id:String(r[0]),
+      date:(()=>{
+        const d=r[1];
+        if(!d) return '';
+        // Handle Date object from Sheets (comes as "Sat Apr 11 2026..." or "2026-04-11")
+        const s=String(d);
+        if(s.match(/^\d{4}-\d{2}-\d{2}/)) return s.substring(0,10);
+        // Try parsing as date
+        const parsed=new Date(s);
+        if(!isNaN(parsed)) return parsed.toISOString().substring(0,10);
+        return s.substring(0,10);
+      })(),
+      amount:parseFloat(r[2])||0,
+      name:String(r[3]),
+      payee:String(r[4]||''),
+      cat:String(r[5]),
+      note:String(r[6]||'')
+    })).filter(e=>e.date&&e.date.match(/^\d{4}-\d{2}-\d{2}$/));
     expenses.sort((a,b)=>b.date.localeCompare(a.date));
     localStorage.setItem('cc_expenses',JSON.stringify(expenses));
     buildMonthOptions();buildRptFilters();render();
@@ -639,19 +649,19 @@ async function refreshData(){
 }
 async function saveToSheet(exp){
   if(!scriptUrl)return;setSyncing('กำลังบันทึก...');
-  try{await getSheet({action:'add',data:JSON.stringify(exp)});}
+  try{await callSheet({action:'add',data:JSON.stringify(exp)});}
   catch(e){showToast('บันทึกลง Sheets ไม่สำเร็จ');}
   setSyncing(null);
 }
 async function updateToSheet(exp){
   if(!scriptUrl)return;setSyncing('กำลังอัปเดต...');
-  try{await getSheet({action:'update',data:JSON.stringify(exp)});}
+  try{await callSheet({action:'update',data:JSON.stringify(exp)});}
   catch(e){showToast('อัปเดต Sheets ไม่สำเร็จ');}
   setSyncing(null);
 }
 async function deleteFromSheet(id){
   if(!scriptUrl)return;setSyncing('กำลังลบ...');
-  try{await getSheet({action:'delete',id:id});}catch(e){}
+  try{await callSheet({action:'delete',id:id});}catch(e){}
   setSyncing(null);
 }
 
@@ -767,7 +777,7 @@ function buildMonthOptions(){
   sel.innerHTML='';
   sorted.forEach(m=>{
     const[y,mo]=m.split('-');
-    const label=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'][+mo-1]+' '+y;
+    const MTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];const label=MTHS[+mo-1]+' '+y;
     const opt=document.createElement('option');opt.value=m;opt.textContent=label;sel.appendChild(opt);
   });
   sel.value=sorted.includes(prev)?prev:sorted[0];
@@ -788,7 +798,8 @@ function render(highlight=false){
   const total=visible.reduce((s,e)=>s+e.amount,0);
   document.getElementById('s-total').textContent=fmt(total);
   document.getElementById('s-count').textContent=visible.length+' รายการ';
-  document.getElementById('s-avg').textContent=visible.length?fmt(total/visible.length):'฿0';
+  const catCount=new Set(visible.map(e=>e.cat)).size;
+  document.getElementById('s-avg').textContent=catCount||'0';
   const catMap={};visible.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amount;});
   const top=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
   if(top){const c=getCat(top[0]);document.getElementById('s-top-cat').textContent=c.icon+' '+c.name;document.getElementById('s-top-val').textContent=fmt(top[1]);}
@@ -797,12 +808,11 @@ function render(highlight=false){
   const body=document.getElementById('tbl-body');
   if(!visible.length){body.innerHTML='<div class="empty">ยังไม่มีรายการในช่วงนี้</div>';return;}
   body.innerHTML=visible.map((e,i)=>{
-    const datePart=e.date?e.date.substring(0,10):'';
-    const[y,m,d]=datePart?datePart.split('-'):['','',''];
+    const rawDate=String(e.date||'');const datePart=rawDate.includes('T')?rawDate.split('T')[0]:rawDate.substring(0,10);const[y,m,d]=datePart.split('-');
     const cat=getCat(e.cat);const col=getCatColor(e.cat);
     const isEditing=String(e.id)===String(editingId);
     return `<div class="tbl-row${highlight&&i===0?' new-row':''}${isEditing?' editing-row':''}">
-      <span class="date-col">${d&&m?d+'/'+m:'—'}</span>
+      <span class="date-col">${d}/${m}</span>
       <div class="name-col"><div class="name">${esc(e.name)}</div>${e.note?`<div class="sub">${esc(e.note)}</div>`:''}</div>
       <span class="amount-col">${fmt(e.amount)}</span>
       <span class="payee-col">${e.payee?esc(e.payee):'<span style="color:var(--text3)">—</span>'}</span>
@@ -819,14 +829,13 @@ function render(highlight=false){
 function generateReport(){
   const ms=document.getElementById('month-sel');
   const rptM=document.getElementById('rpt-month');
-  if(!rptM.innerHTML) { rptM.innerHTML=ms.innerHTML; }
-  if(!rptM.value) rptM.value=ms.value;
-  const month=rptM.value||ms.value;
-  if(!month)return;
+  if(!rptM.innerHTML||rptM.innerHTML.trim()==='') { rptM.innerHTML=ms.innerHTML; }
+  if(!rptM.value) rptM.value=ms.value||currentMonth;
+  const month=rptM.value||currentMonth;
+  if(!month){document.getElementById('report-output').innerHTML='<div class="empty" style="padding:2rem;">กรุณาเลือกเดือน</div>';return;}
   const catFilter=document.getElementById('rpt-cat').value||'all';
   const[y,mo]=month.split('-');
-  const MONTHS_TH=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
-  const monthLabel=MONTHS_TH[+mo-1]+' '+y;
+  const MTHS2=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];const monthLabel=MTHS2[+mo-1]+' '+y;
 
   let data=expenses.filter(e=>e.date.substring(0,7)===month);
   if(catFilter!=='all') data=data.filter(e=>e.cat===catFilter);
@@ -869,7 +878,7 @@ function generateReport(){
     </div>
     <div class="rpt-body">
       ${data.sort((a,b)=>b.date.localeCompare(a.date)).map(e=>{
-        const[y2,m2,d2]=e.date.split('-');const cat=getCat(e.cat);const col=getCatColor(e.cat);
+        const dp2=String(e.date||'').substring(0,10);const[y2,m2,d2]=dp2.split('-');const cat=getCat(e.cat);const col=getCatColor(e.cat);
         return `<div class="rpt-tbl-row">
           <span class="date-col">${d2}/${m2}</span>
           <div class="name-col"><div class="name">${esc(e.name)}</div>${e.note?`<div class="sub">${esc(e.note)}</div>`:''}</div>
