@@ -907,6 +907,12 @@ function render(highlight=false){
 
 // ── Report ───────────────────────────────────────────────
 function generateReport(){
+  // load from localStorage if expenses empty
+  if(!expenses.length){
+    const stored=localStorage.getItem('cc_expenses');
+    if(stored) expenses=JSON.parse(stored);
+    buildMonthOptions();buildRptFilters();
+  }
   syncRptMonth();
   const month=document.getElementById('rpt-month').value||currentMonth;
   if(!month){document.getElementById('report-output').innerHTML='<div class="empty" style="padding:2rem;">กรุณาเลือกเดือน</div>';return;}
