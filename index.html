@@ -742,12 +742,12 @@ async function confirmDelete(){
 // ── UI helpers ───────────────────────────────────────────
 function buildMonthOptions(){
   const months=new Set();const today=new Date();
-  for(let i=0;i<13;i++){const d=new Date(today.getFullYear(),today.getMonth()-i,1);months.add(d.toISOString().substring(0,7));}
+  const todayMonth=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  months.add(todayMonth);
+  for(let i=0;i<13;i++){const d=new Date(today.getFullYear(),today.getMonth()-i,1);months.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);}
   expenses.forEach(e=>months.add(e.date.substring(0,7)));
   const sorted=[...months].sort().reverse();
   const sel=document.getElementById('month-sel');
-  const todayMonth=today.toISOString().substring(0,7);
-  months.add(todayMonth); // always include current month
   const prev=sel.value||todayMonth;
   sel.innerHTML='';
   sorted.forEach(m=>{
