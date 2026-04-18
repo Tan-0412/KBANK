@@ -801,7 +801,11 @@ function render(highlight=false){
 
 // ── Report ───────────────────────────────────────────────
 function generateReport(){
-  const month=document.getElementById('rpt-month').value||document.getElementById('month-sel').value;
+  // sync rpt-month ก่อนเสมอ เพราะอาจยังไม่ถูก populate
+  const ms=document.getElementById('month-sel');
+  const rptM=document.getElementById('rpt-month');
+  if(!rptM.value && ms.value){rptM.innerHTML=ms.innerHTML;rptM.value=ms.value;}
+  const month=rptM.value||ms.value;
   if(!month)return;
   const catFilter=document.getElementById('rpt-cat').value;
   const[y,mo]=month.split('-');
