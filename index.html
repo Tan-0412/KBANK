@@ -424,8 +424,20 @@ function doGet(e) {
   const sheet = getSpreadsheet();
   const action = e.parameter.action;
   if (action === "get") {
-    const rows = sheet.getLastRow() > 0 ? sheet.getDataRange().getValues() : [];
-    return ContentService.createTextOutput(JSON.stringify(rows)).setMimeType(ContentService.MimeType.JSON);
+    if (sheet.getLastRow() === 0) return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
+    const rows = sheet.getDataRange().getValues();
+    const formatted = rows.map((row, i) => {
+      if (i === 0) return row; // header
+      const d = row[1];
+      if (d instanceof Date) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth()+1).padStart(2,'0');
+        const day = String(d.getDate()).padStart(2,'0');
+        row[1] = y+'-'+m+'-'+day;
+      }
+      return row;
+    });
+    return ContentService.createTextOutput(JSON.stringify(formatted)).setMimeType(ContentService.MimeType.JSON);
   }
   if (action === "init") {
     if (sheet.getLastRow() === 0)
