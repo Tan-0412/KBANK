@@ -414,42 +414,58 @@
 <script>
 const APPS_SCRIPT_CODE = `const SHEET_ID = "13l_vY4YFl9Z9lUbGDnCU0mCWzXeA2PoZWEpw3X4L_aA";
 const SHEET_NAME = "Expenses";
+const CAT_SHEET = "Categories";
 
-function getSpreadsheet() {
-  return SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME)
-    || SpreadsheetApp.openById(SHEET_ID).insertSheet(SHEET_NAME);
+function getSheet(name) {
+  return SpreadsheetApp.openById(SHEET_ID).getSheetByName(name)
+    || SpreadsheetApp.openById(SHEET_ID).insertSheet(name);
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  if (d instanceof Date) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+day;
+  }
+  return String(d).substring(0,10);
 }
 
 function doGet(e) {
-  const sheet = getSpreadsheet();
   const action = e.parameter.action;
+
   if (action === "get") {
+    const sheet = getSheet(SHEET_NAME);
     if (sheet.getLastRow() === 0) return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
     const rows = sheet.getDataRange().getValues();
     const formatted = rows.map((row, i) => {
-      if (i === 0) return row; // header
-      const d = row[1];
-      if (d instanceof Date) {
-        const y = d.getFullYear();
-        const m = String(d.getMonth()+1).padStart(2,'0');
-        const day = String(d.getDate()).padStart(2,'0');
-        row[1] = y+'-'+m+'-'+day;
-      }
+      if (i === 0) return row;
+      row[1] = fmtDate(row[1]);
       return row;
     });
     return ContentService.createTextOutput(JSON.stringify(formatted)).setMimeType(ContentService.MimeType.JSON);
   }
+
   if (action === "init") {
+    const sheet = getSheet(SHEET_NAME);
     if (sheet.getLastRow() === 0)
       sheet.appendRow(["id","date","amount","name","payee","cat","note","timestamp"]);
+    const catSheet = getSheet(CAT_SHEET);
+    if (catSheet.getLastRow() === 0)
+      catSheet.appendRow(["id","icon","name"]);
     return ContentService.createTextOutput("ok");
   }
+
   if (action === "add") {
+    const sheet = getSheet(SHEET_NAME);
     const r = JSON.parse(e.parameter.data);
     sheet.appendRow([r.id, r.date, r.amount, r.name, r.payee||"", r.cat, r.note||"", new Date().toISOString()]);
     return ContentService.createTextOutput("ok");
   }
+
   if (action === "update") {
+    const sheet = getSheet(SHEET_NAME);
     const r = JSON.parse(e.parameter.data);
     const data = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
@@ -460,13 +476,40 @@ function doGet(e) {
     }
     return ContentService.createTextOutput("ok");
   }
+
   if (action === "delete") {
+    const sheet = getSheet(SHEET_NAME);
     const data = sheet.getDataRange().getValues();
     for (let i = data.length-1; i >= 0; i--) {
       if (String(data[i][0]) === String(e.parameter.id)) { sheet.deleteRow(i+1); break; }
     }
     return ContentService.createTextOutput("ok");
   }
+
+  if (action === "getCats") {
+    const catSheet = getSheet(CAT_SHEET);
+    if (catSheet.getLastRow() <= 1) return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
+    const rows = catSheet.getDataRange().getValues().slice(1);
+    const cats = rows.map(r => ({id:String(r[0]),icon:String(r[1]),name:String(r[2])}));
+    return ContentService.createTextOutput(JSON.stringify(cats)).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === "addCat") {
+    const catSheet = getSheet(CAT_SHEET);
+    const r = JSON.parse(e.parameter.data);
+    catSheet.appendRow([r.id, r.icon, r.name]);
+    return ContentService.createTextOutput("ok");
+  }
+
+  if (action === "deleteCat") {
+    const catSheet = getSheet(CAT_SHEET);
+    const data = catSheet.getDataRange().getValues();
+    for (let i = data.length-1; i >= 0; i--) {
+      if (String(data[i][0]) === String(e.parameter.id)) { catSheet.deleteRow(i+1); break; }
+    }
+    return ContentService.createTextOutput("ok");
+  }
+
   return ContentService.createTextOutput("ok");
 }`;
 
@@ -507,6 +550,31 @@ function loadCategories(){
   categories=s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_CATS));
 }
 function saveCategories(){localStorage.setItem('cc_categories_v2',JSON.stringify(categories));}
+async function loadCatsFromSheet(){
+  if(!scriptUrl)return;
+  try{
+    const res=await callSheet({action:'getCats'});
+    const text=await res.text();
+    if(!text||text==='[]')return;
+    const remoteCats=JSON.parse(text);
+    if(!remoteCats.length)return;
+    // merge: keep default cats, add remote custom cats
+    const defIds=new Set(DEFAULT_CAT_IDS);
+    const remoteCustom=remoteCats.filter(c=>!defIds.has(c.id));
+    const merged=[...JSON.parse(JSON.stringify(DEFAULT_CATS)),...remoteCustom];
+    categories=merged;
+    saveCategories();
+    buildCatSelect();buildFilterBar();buildRptFilters();
+  }catch(e){}
+}
+async function saveCatToSheet(cat){
+  if(!scriptUrl)return;
+  try{await callSheet({action:'addCat',data:JSON.stringify(cat)});}catch(e){}
+}
+async function deleteCatFromSheet(id){
+  if(!scriptUrl)return;
+  try{await callSheet({action:'deleteCat',id:id});}catch(e){}
+}
 function getCat(id){return categories.find(c=>c.id===id)||{icon:'📦',name:id,id};}
 function getCatColor(id){const i=categories.findIndex(c=>c.id===id);return PALETTE[(i<0?0:i)%PALETTE.length];}
 
@@ -526,6 +594,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   buildRptFilters();
   render();
   loadFromSheet();
+  loadCatsFromSheet();
 });
 
 // ── Tab switching ────────────────────────────────────────
@@ -587,8 +656,10 @@ function confirmAddCat(){
   const icon=document.getElementById('new-cat-icon').value;
   if(!name){showToast('กรุณากรอกชื่อ');return;}
   if(categories.find(c=>c.name===name)){showToast('ชื่อนี้มีอยู่แล้ว');return;}
-  categories.push({id:'cat_'+Date.now(),icon,name});
+  const newCat={id:'cat_'+Date.now(),icon,name};
+  categories.push(newCat);
   saveCategories();buildCatSelect();buildFilterBar();renderCatList();buildRptFilters();
+  saveCatToSheet(newCat);
   document.getElementById('new-cat-name').value='';
   showToast('เพิ่มหมวดหมู่แล้ว ✓');
 }
@@ -596,6 +667,7 @@ function deleteCat(id){
   categories=categories.filter(c=>c.id!==id);
   saveCategories();if(filter===id)filter='all';
   buildCatSelect();buildFilterBar();renderCatList();buildRptFilters();render();
+  deleteCatFromSheet(id);
   showToast('ลบหมวดหมู่แล้ว');
 }
 
